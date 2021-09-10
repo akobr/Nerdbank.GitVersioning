@@ -127,12 +127,24 @@ public class VersionOptions : IEquatable<VersionOptions>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private bool inherit;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="VersionOptions"/> class.
-    /// </summary>
-    public VersionOptions()
-    {
-    }
+        /// <summary>
+        /// Backing field for the <see cref="HierarchicalVersion"/> property.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private bool? hierarchicalVersion;
+
+        /// <summary>
+        /// Backing field for the <see cref="InheritPathFilters"/> property.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private bool? inheritPathFilters;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VersionOptions"/> class.
+        /// </summary>
+        public VersionOptions()
+        {
+        }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VersionOptions"/> class.
@@ -142,19 +154,21 @@ public class VersionOptions : IEquatable<VersionOptions>
     {
         Requires.NotNull(copyFrom, nameof(copyFrom));
 
-        this.gitCommitIdPrefix = copyFrom.gitCommitIdPrefix;
-        this.version = copyFrom.version;
-        this.assemblyVersion = copyFrom.assemblyVersion is object ? new AssemblyVersionOptions(copyFrom.assemblyVersion) : null;
-        this.buildNumberOffset = copyFrom.buildNumberOffset;
-        this.semVer1NumericIdentifierPadding = copyFrom.semVer1NumericIdentifierPadding;
-        this.gitCommitIdShortFixedLength = copyFrom.gitCommitIdShortFixedLength;
-        this.gitCommitIdShortAutoMinimum = copyFrom.gitCommitIdShortAutoMinimum;
-        this.nuGetPackageVersion = copyFrom.nuGetPackageVersion is object ? new NuGetPackageVersionOptions(copyFrom.nuGetPackageVersion) : null;
-        this.publicReleaseRefSpec = copyFrom.publicReleaseRefSpec?.ToList();
-        this.cloudBuild = copyFrom.cloudBuild is object ? new CloudBuildOptions(copyFrom.cloudBuild) : null;
-        this.release = copyFrom.release is object ? new ReleaseOptions(copyFrom.release) : null;
-        this.pathFilters = copyFrom.pathFilters?.ToList();
-    }
+            this.gitCommitIdPrefix = copyFrom.gitCommitIdPrefix;
+            this.version = copyFrom.version;
+            this.assemblyVersion = copyFrom.assemblyVersion is object ? new AssemblyVersionOptions(copyFrom.assemblyVersion) : null;
+            this.buildNumberOffset = copyFrom.buildNumberOffset;
+            this.semVer1NumericIdentifierPadding = copyFrom.semVer1NumericIdentifierPadding;
+            this.gitCommitIdShortFixedLength = copyFrom.gitCommitIdShortFixedLength;
+            this.gitCommitIdShortAutoMinimum = copyFrom.gitCommitIdShortAutoMinimum;
+            this.nuGetPackageVersion = copyFrom.nuGetPackageVersion is object ? new NuGetPackageVersionOptions(copyFrom.nuGetPackageVersion) : null;
+            this.publicReleaseRefSpec = copyFrom.publicReleaseRefSpec?.ToList();
+            this.cloudBuild = copyFrom.cloudBuild is object ? new CloudBuildOptions(copyFrom.cloudBuild) : null;
+            this.release = copyFrom.release is object ? new ReleaseOptions(copyFrom.release) : null;
+            this.pathFilters = copyFrom.pathFilters?.ToList();
+            this.hierarchicalVersion = copyFrom.hierarchicalVersion;
+            this.inheritPathFilters = copyFrom.inheritPathFilters;
+        }
 
     /// <summary>
     /// The last component to control in a 4 integer version.
@@ -497,11 +511,40 @@ public class VersionOptions : IEquatable<VersionOptions>
         set => this.SetIfNotReadOnly(ref this.inherit, value);
     }
 
-    /// <summary>
-    /// Gets a value indicating whether this instance rejects all attempts to mutate it.
-    /// </summary>
-    [JsonIgnore]
-    public bool IsFrozen => this.isFrozen;
+        /// <summary>
+        /// Gets or sets a value indicating whether the version in current directory structure is hierarchical and calculated independently per each sub-directory.
+        /// </summary>
+        /// <remarks>
+        /// When this is <c>true</c>, the path filters are not applied and rather each sub-folder automatically applies itself as an only filter (included).
+        /// </remarks>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [System.ComponentModel.DefaultValue(null)]
+        public bool HierarchicalVersion
+        {
+            get => this.hierarchicalVersion ?? false;
+            set => this.SetIfNotReadOnly(ref this.hierarchicalVersion, value);
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether path filters are inherited from parent version configurations.
+        /// This is backward compatibility flag, if you want the behaviour of inheritance on path filters, you must to set the flag to true explicitly.
+        /// </summary>
+        /// <remarks>
+        /// When this is <c>false</c>, the path filters are NOT inherited from parent configurations.
+        /// </remarks>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [System.ComponentModel.DefaultValue(null)]
+        public bool InheritPathFilters
+        {
+            get => this.inheritPathFilters ?? false;
+            set => this.SetIfNotReadOnly(ref this.inheritPathFilters, value);
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether this instance rejects all attempts to mutate it.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsFrozen => this.isFrozen;
 
     /// <summary>
     /// Gets the position in a computed version that the version height should appear.
@@ -630,22 +673,74 @@ public class VersionOptions : IEquatable<VersionOptions>
     /// <returns><see langword="true"/> if the instances have equal values; <see langword="false"/> otherwise.</returns>
     public bool Equals(VersionOptions? other) => EqualWithDefaultsComparer.Singleton.Equals(this, other);
 
-    /// <summary>
-    /// Freezes this instance so no more changes can be made to it.
-    /// </summary>
-    public void Freeze()
-    {
-        if (!this.isFrozen)
+        /// <summary>
+        /// Freezes this instance so no more changes can be made to it.
+        /// </summary>
+        public void Freeze()
         {
-            this.isFrozen = true;
-            this.assemblyVersion?.Freeze();
-            this.nuGetPackageVersion?.Freeze();
-            this.publicReleaseRefSpec = this.publicReleaseRefSpec is object ? new ReadOnlyCollection<string>(this.publicReleaseRefSpec.ToList()) : null;
-            this.cloudBuild?.Freeze();
-            this.release?.Freeze();
-            this.pathFilters = this.pathFilters is object ? new ReadOnlyCollection<FilterPath>(this.pathFilters.ToList()) : null;
+            if (!this.isFrozen)
+            {
+                this.isFrozen = true;
+                this.assemblyVersion?.Freeze();
+                this.nuGetPackageVersion?.Freeze();
+                this.publicReleaseRefSpec = this.publicReleaseRefSpec is object ? new ReadOnlyCollection<string>(this.publicReleaseRefSpec.ToList()) : null;
+                this.cloudBuild?.Freeze();
+                this.release?.Freeze();
+                this.pathFilters = this.pathFilters is object ? new ReadOnlyCollection<FilterPath>(this.pathFilters.ToList()) : null;
+            }
         }
-    }
+
+        public void InheritFrom(VersionOptions? parent)
+        {
+            if (parent is null)
+            {
+                return;
+            }
+
+            if (this.isFrozen)
+            {
+                throw new InvalidOperationException("the instance of version options is read-only.");
+            }
+
+            this.version ??= parent.version?.Clone();
+
+            this.gitCommitIdPrefix ??= parent.gitCommitIdPrefix;
+            this.buildNumberOffset ??= parent.buildNumberOffset;
+            this.semVer1NumericIdentifierPadding ??= parent.semVer1NumericIdentifierPadding;
+            this.gitCommitIdShortFixedLength ??= parent.gitCommitIdShortFixedLength;
+            this.gitCommitIdShortAutoMinimum ??= parent.gitCommitIdShortAutoMinimum;
+
+            this.assemblyVersion ??= parent.assemblyVersion is not null ? new AssemblyVersionOptions(parent.assemblyVersion) : null;
+            this.nuGetPackageVersion ??= parent.nuGetPackageVersion is not null ? new NuGetPackageVersionOptions(parent.nuGetPackageVersion) : null;
+            this.cloudBuild ??= parent.cloudBuild is not null ? new CloudBuildOptions(parent.cloudBuild) : null;
+            this.release ??= parent.release is not null ? new ReleaseOptions(parent.release) : null;
+
+            this.inheritPathFilters ??= parent.inheritPathFilters;
+            this.hierarchicalVersion ??= parent.hierarchicalVersion;
+
+            if (this.publicReleaseRefSpec is null)
+            {
+                this.publicReleaseRefSpec = parent.publicReleaseRefSpec?.ToList();
+            }
+            else if (parent.publicReleaseRefSpec is not null)
+            {
+                this.publicReleaseRefSpec = this.publicReleaseRefSpec.Union(parent.publicReleaseRefSpec).ToList();
+            }
+
+            if (this.inheritPathFilters ?? false)
+            {
+                if (this.pathFilters is null)
+                {
+                    this.pathFilters = parent.pathFilters?.ToList();
+                }
+                else if (parent.pathFilters is not null)
+                {
+                    this.pathFilters = parent.pathFilters.Union(this.pathFilters).ToList();
+                }
+            }
+
+            this.inherit = false;
+        }
 
     /// <summary>
     /// Sets the value of a field if this instance is not marked as read only.
