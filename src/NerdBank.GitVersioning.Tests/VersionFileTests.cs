@@ -263,6 +263,77 @@ public abstract class VersionFileTests : RepoTestBase
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void SetVersion_PathFilters_InheritUnion()
+    {
+        this.InitializeSourceControl();
+
+        var rootVersionOptions = new VersionOptions
+        {
+            Version = SemanticVersion.Parse("1.2"),
+            PathFilters = new[]
+            {
+                new FilterPath("./root-file.txt", ""),
+                new FilterPath("/absolute", ""),
+            },
+            PathFiltersInheritBehavior = VersionOptions.BehaviorOfPathFiltersInheritance.InheritWithUnion,
+        };
+        this.Context.VersionFile.SetVersion(this.RepoPath, rootVersionOptions);
+
+        var versionOptions = new VersionOptions
+        {
+            Version = SemanticVersion.Parse("1.2"),
+            Inherit = true,
+            PathFilters = new[]
+            {
+                new FilterPath("./project-file.txt", "quux"),
+                new FilterPath("/absolute", "quux"),
+            }
+        };
+        var projectDirectory = Path.Combine(this.RepoPath, "quux");
+        this.Context.VersionFile.SetVersion(projectDirectory, versionOptions);
+
+        var expected = rootVersionOptions.PathFilters
+            .Union(versionOptions.PathFilters)
+            .Select(x => x.RepoRelativePath)
+            .ToList();
+
+        using var projectContext = this.CreateGitContext(projectDirectory);
+        var actualVersionOptions = projectContext.VersionFile.GetVersion();
+        var actual = actualVersionOptions.PathFilters.Select(x => x.RepoRelativePath).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SetVersion_PathFilters_NonInheritable()
+    {
+        this.InitializeSourceControl();
+
+        var rootVersionOptions = new VersionOptions
+        {
+            Version = SemanticVersion.Parse("1.2"),
+            PathFilters = new[]
+            {
+                new FilterPath("./root-file.txt", ""),
+                new FilterPath("/absolute", ""),
+            },
+            PathFiltersInheritBehavior = VersionOptions.BehaviorOfPathFiltersInheritance.NonInheritable,
+        };
+        this.Context.VersionFile.SetVersion(this.RepoPath, rootVersionOptions);
+
+        var versionOptions = new VersionOptions
+        {
+            Version = SemanticVersion.Parse("1.2"),
+            Inherit = true
+        };
+        var projectDirectory = Path.Combine(this.RepoPath, "quux");
+        this.Context.VersionFile.SetVersion(projectDirectory, versionOptions);
+
+        using var projectContext = this.CreateGitContext(projectDirectory);
+        var actualVersionOptions = projectContext.VersionFile.GetVersion();
+        Assert.Null(actualVersionOptions.PathFilters);
+    }
+
     [Theory]
     [InlineData(@"{""cloudBuild"":{""buildNumber"":{""enabled"":false,""includeCommitId"":{""when"":""nonPublicReleaseOnly"",""where"":""buildMetadata""}}}}", @"{}")]
     [InlineData(@"{""cloudBuild"":{""buildNumber"":{""enabled"":true,""includeCommitId"":{""when"":""nonPublicReleaseOnly"",""where"":""buildMetadata""}}}}", @"{""cloudBuild"":{""buildNumber"":{""enabled"":true}}}")]

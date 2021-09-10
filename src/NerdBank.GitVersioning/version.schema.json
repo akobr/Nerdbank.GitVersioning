@@ -190,6 +190,17 @@
             "pattern": "^(:\\^|:!|:/|[^:])"
           },
           "uniqueItems": true
+        },
+        "pathFiltersInheritBehavior": {
+          "type": "string",
+          "description": "A value defining how path filters are inherited from parent version configurations. For backward compatibility, if you want different behaviour then inherit but override on path filters, you must set the desired behavior explicitly.",
+          "enum": [ "inheritButOverride", "inheritWithUnion", "nonInheritable" ],
+          "default": "inheritButOverride"
+        },
+        "hierarchicalVersion": {
+          "type": "boolean",
+          "description": "A value indicating whether the version in the current directory structure is hierarchical and calculated independently per each sub-directory. When this option has been enabled, the functionality of path filters is ignored, and the version of each folder is affected only by its own content.",
+          "default": false
         }
       }
     },

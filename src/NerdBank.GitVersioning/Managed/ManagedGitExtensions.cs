@@ -88,6 +88,7 @@ namespace Nerdbank.GitVersioning.Managed
         /// the specified commit and the most distant ancestor (inclusive).
         /// </summary>
         /// <param name="context">The git context.</param>
+        /// <param name="pathFilters">The path filters used to filtered walk through git commits.</param>
         /// <param name="continueStepping">
         /// A function that returns <c>false</c> when we reach a commit that
         /// should not be included in the height calculation.
@@ -153,17 +154,9 @@ namespace Nerdbank.GitVersioning.Managed
                 }
 
                 var versionOptions = tracker.GetVersion(commit);
-                var pathFilters = versionOptions?.PathFilters;
-
-                var includePaths =
-                    pathFilters
-                        ?.Where(filter => !filter.IsExclude)
-                        .Select(filter => filter.RepoRelativePath)
-                        .ToList();
-
-                var excludePaths = pathFilters?.Where(filter => filter.IsExclude).ToList();
-
-                var ignoreCase = repository.IgnoreCase;
+                var pathFilters = versionOptions?.HierarchicalVersion ?? false
+                    ? new List<FilterPath> {new FilterPath(tracker.Context.RepoRelativeProjectDirectory, string.Empty)}
+                    : versionOptions?.PathFilters;
 
                 int height = 1;
 
@@ -320,6 +313,8 @@ namespace Nerdbank.GitVersioning.Managed
             {
                 this.context = context;
             }
+
+            internal ManagedGitContext Context => context;
 
             internal bool TryGetVersionHeight(GitCommit commit, out int height) => this.heights.TryGetValue(commit.Sha, out height);
 
