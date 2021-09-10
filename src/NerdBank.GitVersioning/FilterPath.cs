@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation and Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System;
 using System.Text;
 using Validation;
 
@@ -235,6 +236,43 @@ public class FilterPath
     {
         return this.RepoRelativePath;
     }
+
+    public bool Equals(FilterPath other)
+    {
+        if (ReferenceEquals(null, other))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return string.Equals(this.RepoRelativePath, other.RepoRelativePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public override bool Equals(object obj)
+    {
+        if (ReferenceEquals(null, obj))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (obj.GetType() != this.GetType())
+        {
+            return false;
+        }
+
+        return Equals((FilterPath)obj);
+    }
+
+    public override int GetHashCode() => (this.RepoRelativePath is not null ? StringComparer.OrdinalIgnoreCase.GetHashCode(this.RepoRelativePath) : 0);
 
     /// <summary>
     /// Normalizes a pathspec-like string into a root-relative path.

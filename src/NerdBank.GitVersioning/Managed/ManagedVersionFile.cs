@@ -120,23 +120,22 @@ internal class ManagedVersionFile : VersionFile
                 {
                     if (parentDirectory is object)
                     {
-                        result = this.GetVersion(commit, parentDirectory, blobVersionCache, out string? resultingDirectory);
-                        if (result is object)
+                        var parentVersion = this.GetVersion(commit, parentDirectory, blobVersionCache, out string? resultingDirectory);
+                        if (parentVersion is object)
                         {
-                            if (versionJsonContent is null)
-                            {
-                                // We reused a cache VersionOptions, but now we need the actual JSON string.
-                                using var sr = new StreamReader(this.Context.Repository.GetObjectBySha(versionJsonBlob, "blob")!);
-                                versionJsonContent = sr.ReadToEnd();
-                            }
+                            bool isFrozen = result.IsFrozen;
 
-                            if (result.IsFrozen)
+                            if (isFrozen)
                             {
                                 result = new VersionOptions(result);
                             }
 
-                            JsonConvert.PopulateObject(versionJsonContent, result, VersionOptions.GetJsonSettings(repoRelativeBaseDirectory: searchDirectory));
-                            finalResult = result;
+                            result.InheritFrom(parentVersion);
+
+                            if (isFrozen)
+                            {
+                                result.Freeze();
+                            }
                         }
                         else
                         {

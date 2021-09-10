@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation and Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Validation;
@@ -11,7 +12,7 @@ namespace Nerdbank.GitVersioning;
 /// Describes a version with an optional unstable tag.
 /// </summary>
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-public class SemanticVersion : IEquatable<SemanticVersion>
+public class SemanticVersion : IEquatable<SemanticVersion>, ICloneable
 {
     /// <summary>
     /// The regular expression with capture groups for semantic versioning.
@@ -272,6 +273,11 @@ public class SemanticVersion : IEquatable<SemanticVersion>
             && this.Prerelease == other.Prerelease
             && this.BuildMetadata == other.BuildMetadata;
     }
+
+    public SemanticVersion Clone() => new SemanticVersion((Version)this.Version.Clone(), this.Prerelease, this.BuildMetadata);
+
+    object ICloneable.Clone() => this.Clone();
+
 
     /// <summary>
     /// Tests whether two <see cref="SemanticVersion" /> instances are compatible enough that version height is not reset
