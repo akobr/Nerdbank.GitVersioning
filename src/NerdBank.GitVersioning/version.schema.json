@@ -1,6 +1,6 @@
 ﻿{
   "$schema": "http://json-schema.org/draft-04/schema",
-  "title": "Nerdbank.GitVersioning version.json schema",
+  "title": "42.Monorepo.GitVersioning version.json schema",
   "type": "object",
   "anyOf": [
     { "$ref": "#/definitions/baseFile" },

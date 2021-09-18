@@ -4,7 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>Full</DebugType>
     <IsPackable>false</IsPackable>
-    <PackageId>Nerdbank.GitVersioning.Core</PackageId>
+    <PackageId>42.Monorepo.GitVersioning.Core</PackageId>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Nerdbank.GitVersioning</RootNamespace>
   </PropertyGroup>

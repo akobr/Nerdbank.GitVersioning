@@ -142,7 +142,7 @@ namespace Nerdbank.GitVersioning
         /// The $schema field that should be serialized when writing
         /// </summary>
         [JsonProperty(PropertyName = "$schema")]
-        public string Schema => "https://raw.githubusercontent.com/dotnet/Nerdbank.GitVersioning/master/src/NerdBank.GitVersioning/version.schema.json";
+        public string Schema => "https://raw.githubusercontent.com/akobr/Nerdbank.GitVersioning/main/monorepo/src/NerdBank.GitVersioning/version.schema.json";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VersionOptions"/> class.
