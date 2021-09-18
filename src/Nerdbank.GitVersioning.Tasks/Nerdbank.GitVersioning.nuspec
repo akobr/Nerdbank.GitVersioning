@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
   <metadata>
-    <id>Nerdbank.GitVersioning$LKGSuffix$</id>
+    <id>42.Monorepo.GitVersioning$LKGSuffix$</id>
     <version>$version$</version>
-    <title>Nerdbank.GitVersioning</title>
-    <authors>Andrew Arnott</authors>
-    <owners>aarnott</owners>
+    <title>42.Monorepo.GitVersioning</title>
+    <authors>Andrew Arnott, Ales Kobr</authors>
+    <owners>aarnott, akobr</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <releaseNotes>See https://github.com/dotnet/Nerdbank.GitVersioning/releases/tag/v$version$ for release notes.
+    <releaseNotes>See https://github.com/akobr/Nerdbank.GitVersioning/releases/tag/v$version$ for release notes.
 IMPORTANT: The 3.x release may produce a different version height than prior major versions.</releaseNotes>
     <developmentDependency>true</developmentDependency>
     <license type="expression">MIT</license>
-    <projectUrl>https://github.com/dotnet/Nerdbank.GitVersioning</projectUrl>
+    <projectUrl>https://github.com/akobr/Nerdbank.GitVersioning</projectUrl>
     <description>Stamps your assemblies with semver 2.0 compliant git commit specific version information and provides NuGet versioning information as well.</description>
     <tags>git commit versioning version assemblyinfo</tags>
-    <repository type="git" url="https://github.com/dotnet/Nerdbank.GitVersioning.git" commit="$commit$" />
+    <repository type="git" url="https://github.com/akobr/Nerdbank.GitVersioning.git" commit="$commit$" />
   </metadata>
   <files>
     <file src="$BaseOutputPath$net461\LibGit2Sharp.dll" target="build\MSBuildFull\LibGit2Sharp.dll" />
@@ -49,10 +49,10 @@ IMPORTANT: The 3.x release may produce a different version height than prior maj
     <file src="$BaseOutputPath$netcoreapp2.1\Validation.dll" target="build\MSBuildCore\Validation.dll" />
     <file src="$BaseOutputPath$netcoreapp2.1\System.Runtime.CompilerServices.Unsafe.dll" target="build\MSBuildCore\System.Runtime.CompilerServices.Unsafe.dll" />
 
-    <file src="build\Nerdbank.GitVersioning.targets" target="build\Nerdbank.GitVersioning$LKGSuffix$.targets" />
+    <file src="build\Nerdbank.GitVersioning.targets" target="build\42.Monorepo.GitVersioning$LKGSuffix$.targets" />
     <file src="build\Nerdbank.GitVersioning.Common.targets" target="build\Nerdbank.GitVersioning.Common.targets" />
     <file src="build\Nerdbank.GitVersioning.Inner.targets" target="build\Nerdbank.GitVersioning.Inner.targets" />
-    <file src="buildCrossTargeting\Nerdbank.GitVersioning.targets" target="buildCrossTargeting\Nerdbank.GitVersioning$LKGSuffix$.targets" />
+    <file src="buildCrossTargeting\Nerdbank.GitVersioning.targets" target="buildCrossTargeting\42.Monorepo.GitVersioning$LKGSuffix$.targets" />
     <file src="readme.txt" target="readme.txt" />
   </files>
 </package>
