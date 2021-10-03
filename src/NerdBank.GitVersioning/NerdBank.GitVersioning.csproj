@@ -2,8 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netcoreapp3.1</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <DebugType>Full</DebugType>
-    <IsPackable>false</IsPackable>
+    <DebugType>embedded</DebugType>
     <PackageId>42.Monorepo.GitVersioning.Core</PackageId>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Nerdbank.GitVersioning</RootNamespace>
