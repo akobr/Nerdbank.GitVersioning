@@ -471,7 +471,9 @@ public static class LibGit2GitExtensions
             }
 
             VersionOptions? versionOptions = tracker.GetVersion(commit);
-            IReadOnlyList<FilterPath>? pathFilters = versionOptions?.PathFilters;
+            IReadOnlyList<FilterPath>? pathFilters = versionOptions?.HierarchicalVersion ?? false
+                ? new List<FilterPath> { new FilterPath(tracker.Context.RepoRelativeProjectDirectory, string.Empty) }
+                : versionOptions?.PathFilters;
 
             var includePaths =
                 pathFilters
