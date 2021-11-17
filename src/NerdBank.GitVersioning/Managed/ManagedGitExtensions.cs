@@ -298,7 +298,6 @@ namespace Nerdbank.GitVersioning.Managed
             private readonly Dictionary<GitObjectId, VersionOptions?> blobVersionCache = new Dictionary<GitObjectId, VersionOptions?>();
             private readonly Dictionary<GitObjectId, int> heights = new Dictionary<GitObjectId, int>();
             private readonly ManagedGitContext context;
-            private readonly IReadOnlyList<FilterPath> pathFilters;
 
             internal GitWalkTracker(ManagedGitContext context)
             {
@@ -306,8 +305,6 @@ namespace Nerdbank.GitVersioning.Managed
             }
 
             internal ManagedGitContext Context => context;
-
-            internal IReadOnlyList<FilterPath> PathFilters => this.pathFilters;
 
             internal bool TryGetVersionHeight(GitCommit commit, out int height) => this.heights.TryGetValue(commit.Sha, out height);
 
