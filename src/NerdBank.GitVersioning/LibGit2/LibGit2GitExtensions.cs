@@ -381,7 +381,9 @@ namespace Nerdbank.GitVersioning.LibGit2
                 }
 
                 var versionOptions = tracker.GetVersion(commit);
-                var pathFilters = versionOptions?.PathFilters;
+                var pathFilters = versionOptions?.HierarchicalVersion ?? false
+                    ? new List<FilterPath> { new FilterPath(tracker.Context.RepoRelativeProjectDirectory, string.Empty) }
+                    : versionOptions?.PathFilters;
 
                 var includePaths =
                     pathFilters
@@ -552,6 +554,8 @@ namespace Nerdbank.GitVersioning.LibGit2
             {
                 this.context = context;
             }
+
+            internal LibGit2Context Context => context;
 
             internal bool TryGetVersionHeight(Commit commit, out int height) => this.heights.TryGetValue(commit.Id, out height);
 

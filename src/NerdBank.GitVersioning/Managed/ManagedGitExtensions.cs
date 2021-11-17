@@ -32,7 +32,7 @@ namespace Nerdbank.GitVersioning.Managed
                 return 0;
             }
 
-            var tracker = new GitWalkTracker(context, null);
+            var tracker = new GitWalkTracker(context);
 
             var versionOptions = tracker.GetVersion(context.Commit.Value);
             if (versionOptions is null)
@@ -44,14 +44,10 @@ namespace Nerdbank.GitVersioning.Managed
                 baseVersion is not null ? SemanticVersion.Parse(baseVersion.ToString()) :
                 versionOptions.Version ?? SemVer0;
 
-            var pathFilters = versionOptions.HierarchicalVersion
-                ? new List<FilterPath>() {new FilterPath(context.RepoRelativeProjectDirectory, string.Empty)}
-                : versionOptions.PathFilters;
-
             var versionHeightPosition = versionOptions.VersionHeightPosition;
             if (versionHeightPosition.HasValue)
             {
-                int height = GetHeight(context, pathFilters, c => CommitMatchesVersion(c, baseSemVer, versionHeightPosition.Value, tracker));
+                int height = GetHeight(context, c => CommitMatchesVersion(c, baseSemVer, versionHeightPosition.Value, tracker));
                 return height;
             }
 
@@ -99,10 +95,10 @@ namespace Nerdbank.GitVersioning.Managed
         /// May be null to count the height to the original commit.
         /// </param>
         /// <returns>The height of the commit. Always a positive integer.</returns>
-        public static int GetHeight(ManagedGitContext context, IReadOnlyList<FilterPath>? pathFilters, Func<GitCommit, bool>? continueStepping = null)
+        public static int GetHeight(ManagedGitContext context, Func<GitCommit, bool>? continueStepping = null)
         {
             Verify.Operation(context.Commit.HasValue, "No commit is selected.");
-            var tracker = new GitWalkTracker(context, pathFilters);
+            var tracker = new GitWalkTracker(context);
             return GetCommitHeight(context.Repository, context.Commit.Value, tracker, continueStepping);
         }
 
@@ -157,9 +153,14 @@ namespace Nerdbank.GitVersioning.Managed
                     return false;
                 }
 
+                var versionOptions = tracker.GetVersion(commit);
+                var pathFilters = versionOptions?.HierarchicalVersion ?? false
+                    ? new List<FilterPath> {new FilterPath(tracker.Context.RepoRelativeProjectDirectory, string.Empty)}
+                    : versionOptions?.PathFilters;
+
                 int height = 1;
 
-                if (tracker.PathFilters.Count > 0)
+                if (pathFilters is not null)
                 {
                     // If the diff between this commit and any of its parents
                     // touches a path that we care about, bump the height.
@@ -168,7 +169,7 @@ namespace Nerdbank.GitVersioning.Managed
                     {
                         anyParents = true;
                         GitCommit parent = repository.GetCommit(parentId);
-                        if (IsRelevantCommit(repository, commit, parent, tracker.PathFilters))
+                        if (IsRelevantCommit(repository, commit, parent, pathFilters))
                         {
                             // No need to scan further, as a positive match will never turn negative.
                             relevantCommit = true;
@@ -179,7 +180,7 @@ namespace Nerdbank.GitVersioning.Managed
                     if (!anyParents)
                     {
                         // A no-parent commit is relevant if it introduces anything in the filtered path.
-                        relevantCommit = IsRelevantCommit(repository, commit, parent: default(GitCommit), tracker.PathFilters);
+                        relevantCommit = IsRelevantCommit(repository, commit, parent: default(GitCommit), pathFilters);
                     }
 
                     if (!relevantCommit)
@@ -309,12 +310,12 @@ namespace Nerdbank.GitVersioning.Managed
             private readonly ManagedGitContext context;
             private readonly IReadOnlyList<FilterPath> pathFilters;
 
-            internal GitWalkTracker(ManagedGitContext context, IReadOnlyList<FilterPath>? pathFilters)
+            internal GitWalkTracker(ManagedGitContext context)
             {
                 this.context = context;
-                this.pathFilters = pathFilters ?? new List<FilterPath>(0);
-
             }
+
+            internal ManagedGitContext Context => context;
 
             internal IReadOnlyList<FilterPath> PathFilters => this.pathFilters;
 
