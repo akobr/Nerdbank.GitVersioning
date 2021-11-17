@@ -4,8 +4,8 @@
     <id>42.Monorepo.GitVersioning$LKGSuffix$</id>
     <version>$version$</version>
     <title>42.Monorepo.GitVersioning</title>
-    <authors>Ales Kobr</authors>
-    <owners>akobr</owners>
+    <authors>Andrew Arnott, Ales Kobr</authors>
+    <owners>aarnott, akobr</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <releaseNotes>See https://github.com/akobr/Nerdbank.GitVersioning/releases/tag/v$version$ for release notes.
 IMPORTANT: The 3.x release may produce a different version height than prior major versions.</releaseNotes>

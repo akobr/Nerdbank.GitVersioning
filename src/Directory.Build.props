@@ -9,8 +9,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)strongname.snk</AssemblyOriginatorKeyFile>
 
-    <authors>Andrew Arnott</authors>
-    <owners>aarnott</owners>
+    <authors>Andrew Arnott, Ales Kobr</authors>
+    <owners>aarnott, akobr</owners>
     <PackageTags>git commit versioning version assemblyinfo</PackageTags>
     <PackageProjectUrl>https://github.com/dotnet/Nerdbank.GitVersioning</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -37,7 +37,7 @@
 
   <Target Name="PrepareReleaseNotes" BeforeTargets="GenerateNuspec" DependsOnTargets="GetBuildVersion">
     <PropertyGroup>
-      <PackageReleaseNotes>https://github.com/dotnet/Nerdbank.GitVersioning/releases/tag/v$(Version)</PackageReleaseNotes>
+      <PackageReleaseNotes>https://github.com/akobr/Nerdbank.GitVersioning/releases/tag/v$(Version)</PackageReleaseNotes>
     </PropertyGroup>
   </Target>
 </Project>
