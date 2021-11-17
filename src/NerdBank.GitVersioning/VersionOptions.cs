@@ -518,7 +518,6 @@ public class VersionOptions : IEquatable<VersionOptions>
         /// When this is <c>true</c>, the path filters are not applied, and rather each sub-folder automatically applies itself as an only filter (included).
         /// </remarks>
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        [System.ComponentModel.DefaultValue(null)]
         public bool HierarchicalVersion
         {
             get => this.hierarchicalVersion ?? false;
@@ -533,7 +532,6 @@ public class VersionOptions : IEquatable<VersionOptions>
         /// When this is <c>false</c>, the path filters are NOT inherited from parent configurations.
         /// </remarks>
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        [System.ComponentModel.DefaultValue(null)]
         public bool InheritPathFilters
         {
             get => this.inheritPathFilters ?? false;
@@ -739,7 +737,7 @@ public class VersionOptions : IEquatable<VersionOptions>
                 }
             }
 
-            this.inherit = false;
+            this.inherit = true;
         }
 
     /// <summary>
