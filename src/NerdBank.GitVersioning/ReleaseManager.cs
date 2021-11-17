@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using LibGit2Sharp;
     using Nerdbank.GitVersioning.LibGit2;
     using Newtonsoft.Json;
@@ -295,7 +296,7 @@
 
             // create release branch and update version
             var releaseBranch = repository.CreateBranch(releaseBranchName);
-            Commands.Checkout(repository, releaseBranch);
+            global::LibGit2Sharp.Commands.Checkout(repository, releaseBranch);
             this.UpdateVersion(context, versionOptions.Version, releaseVersion);
 
             if (outputMode == ReleaseManagerOutputMode.Text)
@@ -304,7 +305,7 @@
             }
 
             // update version on main branch
-            Commands.Checkout(repository, originalBranchName);
+            global::LibGit2Sharp.Commands.Checkout(repository, originalBranchName);
             this.UpdateVersion(context, versionOptions.Version, nextDevVersion);
 
             if (outputMode == ReleaseManagerOutputMode.Text)
@@ -371,7 +372,7 @@
                 versionOptions.Version = newVersion;
                 var filePath = context.VersionFile.SetVersion(context.AbsoluteProjectDirectory, versionOptions, includeSchemaProperty: true);
 
-                Commands.Stage(context.Repository, filePath);
+                global::LibGit2Sharp.Commands.Stage(context.Repository, filePath);
 
                 // Author a commit only if we effectively changed something.
                 if (!context.Repository.Head.Tip.Tree.Equals(context.Repository.Index.WriteToTree()))
@@ -408,9 +409,13 @@
 
 
             // abort if there are any pending changes
-            if (libgit2context.Repository.RetrieveStatus().IsDirty)
+            var status = libgit2context.Repository.RetrieveStatus();
+            if (status.IsDirty)
             {
-                this.stderr.WriteLine($"Uncommitted changes in directory '{projectDirectory}'.");
+                var changedFiles = status.OfType<StatusEntry>().ToList();
+                var changesFilesFormatted = string.Join(Environment.NewLine, changedFiles.Select(t => $"- {t.FilePath} changed with {nameof(FileStatus)} {t.State}"));
+                this.stderr.WriteLine($"Uncommitted changes ({changedFiles.Count}) in directory '{projectDirectory}':");
+                this.stderr.WriteLine(changesFilesFormatted);
                 throw new ReleasePreparationException(ReleasePreparationError.UncommittedChanges);
             }
 

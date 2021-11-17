@@ -25,7 +25,7 @@
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
   </PropertyGroup>
 
-  <Import Project="Nerdbank.GitVersioning.Common.targets"/>
+  <Import Project="Nerdbank.GitVersioning.Common.targets" />
 
   <UsingTask AssemblyFile="$(NerdbankGitVersioningTasksPath)Nerdbank.GitVersioning.Tasks.dll" TaskName="Nerdbank.GitVersioning.Tasks.AssemblyVersionInfo"/>
   <UsingTask AssemblyFile="$(NerdbankGitVersioningTasksPath)Nerdbank.GitVersioning.Tasks.dll" TaskName="Nerdbank.GitVersioning.Tasks.NativeVersionInfo"/>
@@ -37,7 +37,8 @@
     <PropertyGroup>
       <!-- $(TargetExt) isn't set at evaluation time for us when built in wpftmp.csproj with manual imports -->
       <!-- Suppress assembly version info generation if not obviously compiling an assembly. -->
-      <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(TargetExt)' != '.dll' and '$(TargetExt)' != '.exe'">false</GenerateAssemblyVersionInfo>
+      <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(TargetExt)' != '.dll' and '$(TargetExt)' != '.exe' ">false</GenerateAssemblyVersionInfo>
+      <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(NBGV_CacheMode)' == 'VersionGenerationTarget' ">false</GenerateAssemblyVersionInfo>
 
       <!-- Workaround the property stomping that msbuild does (see https://github.com/microsoft/msbuild/pull/4922) with manual imports. -->
       <PrepareForBuildDependsOn>
@@ -62,34 +63,11 @@
     <!-- Consider building a tag to be more precise than the branch we're building. -->
     <_NBGV_BuildingRef>$(_NBGV_BuildingTag)</_NBGV_BuildingRef>
     <_NBGV_BuildingRef Condition=" '$(_NBGV_BuildingRef)' == '' ">$(_NBGV_BuildingBranch)</_NBGV_BuildingRef>
+
+    <GitVersionBaseDirectory Condition=" '$(GitVersionBaseDirectory)' == '' ">$(MSBuildProjectDirectory)</GitVersionBaseDirectory>
   </PropertyGroup>
 
-  <Target Name="GetBuildVersion" Returns="$(BuildVersion)">
-    <PropertyGroup>
-      <GitVersionBaseDirectory Condition=" '$(GitVersionBaseDirectory)' == '' ">$(MSBuildProjectDirectory)</GitVersionBaseDirectory>
-      <NBGV_InnerGlobalProperties>
-        GitRepoRoot=$(GitRepoRoot);
-        PublicRelease=$(PublicRelease);
-        BuildMetadata=@(BuildMetadata, ',');
-        _NBGV_BuildingRef=$(_NBGV_BuildingRef);
-        ProjectPathRelativeToGitRepoRoot=$(ProjectPathRelativeToGitRepoRoot);
-        ProjectDirectory=$(GitVersionBaseDirectory);
-        OverrideBuildNumberOffset=$(OverrideBuildNumberOffset);
-      </NBGV_InnerGlobalProperties>
-      <NBGV_CoreTargets>$(MSBuildThisFileDirectory)Nerdbank.GitVersioning.Inner.targets</NBGV_CoreTargets>
-    </PropertyGroup>
-
-    <!-- Compile a list of global properties that may vary when a project builds but that would never influence the result of the GetBuildVersion task. -->
-    <ItemGroup>
-      <NBGV_GlobalPropertiesToRemove Include="TargetFramework" />
-    </ItemGroup>
-
-    <!-- Calculate version by invoking another "project" with global properties that will serve as a key 
-         into an msbuild cache to ensure we only invoke the GetBuildVersion task as many times as will produce a unique value. -->
-    <MSBuild Projects="$(NBGV_CoreTargets)" Properties="$(NBGV_InnerGlobalProperties)" RemoveProperties="@(NBGV_GlobalPropertiesToRemove)" Targets="GetBuildVersion_Properties">
-      <Output TaskParameter="TargetOutputs" ItemName="NBGV_PropertyItems" />
-    </MSBuild>
-
+  <Target Name="GetBuildVersion" Returns="$(BuildVersion)" DependsOnTargets="InvokeGetBuildVersionTask">
     <!-- Convert each task item into a bona fide MSBuild property. -->
     <CreateProperty
       Value="%(NBGV_PropertyItems.Value)"
@@ -101,12 +79,10 @@
     <PropertyGroup>
       <CloudBuildNumber Condition=" '$(CloudBuildNumber)' == '' and %(NBGV_PropertyItems.Identity) == 'CloudBuildNumber' ">%(Value)</CloudBuildNumber>
     </PropertyGroup>
-
-    <!-- Also get other items. -->
-    <MSBuild Projects="$(NBGV_CoreTargets)" Properties="$(NBGV_InnerGlobalProperties)" RemoveProperties="@(NBGV_GlobalPropertiesToRemove)" Targets="GetBuildVersion_CloudBuildVersionVars">
-      <Output TaskParameter="TargetOutputs" ItemName="CloudBuildVersionVars" />
-    </MSBuild>
   </Target>
+
+  <Import Project="InProjectVersionComputation.targets" Condition=" '$(NBGV_CacheMode)' != 'MSBuildTargetCaching' "/>
+  <Import Project="MSBuildTargetCaching.targets" Condition=" '$(NBGV_CacheMode)' == 'MSBuildTargetCaching' "/>
 
   <Target Name="SetCloudBuildVersionVars"
         DependsOnTargets="GetBuildVersion"
