@@ -13,6 +13,13 @@
   <!-- This target is called by Clean or Rebuild on a referencing project. -->
   <Target Name="Clean" />
 
-  <!-- This target is called by Pack on a referencing project. -->
+  <!-- These targets are called by their respective targets on referencing projects. -->
   <Target Name="Pack" />
+  <Target Name="Publish" />
+
+  <!-- These targets are called when the consuming project is a VSIX project. -->
+  <Target Name="BuiltProjectOutputGroup" />
+  <Target Name="SatelliteDllsProjectOutputGroup" />
+
+  <Import Project="$(NBGV_PrivateP2PAuxTargets)" Condition=" '$(NBGV_PrivateP2PAuxTargets)' != '' " />
 </Project>
