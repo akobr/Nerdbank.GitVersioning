@@ -123,7 +123,7 @@ namespace Nerdbank.GitVersioning.Managed
                     {
                         if (parentDirectory is object)
                         {
-                            var parentVersion = this.GetVersion(commit, parentDirectory, blobVersionCache, out string? resultingDirectory);
+                            var parentVersion = this.GetVersion(commit, parentDirectory, blobVersionCache, out string? _);
                             if (parentVersion is object)
                             {
                                 bool isFrozen = result.IsFrozen;
