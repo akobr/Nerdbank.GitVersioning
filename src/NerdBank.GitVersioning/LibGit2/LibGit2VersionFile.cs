@@ -99,22 +99,24 @@ internal class LibGit2VersionFile : VersionFile
                 {
                     if (parentDirectory is object)
                     {
-                        result = this.GetVersion(commit, parentDirectory, blobVersionCache, out actualDirectory);
-                        if (result is object)
+                        var parentVersion = this.GetVersion(commit, parentDirectory, blobVersionCache, out actualDirectory);
+                        if (parentVersion is object)
                         {
-                            if (versionJsonContent is null)
-                            {
-                                // We reused a cache VersionOptions, but now we need the actual JSON string.
-                                using var sr = new StreamReader(versionJsonBlob.GetContentStream());
-                                versionJsonContent = sr.ReadToEnd();
-                            }
+                            bool isFrozen = result.IsFrozen;
 
-                            if (result.IsFrozen)
+                            if (isFrozen)
                             {
                                 result = new VersionOptions(result);
                             }
 
-                            JsonConvert.PopulateObject(versionJsonContent, result, VersionOptions.GetJsonSettings(repoRelativeBaseDirectory: searchDirectory));
+                            result.InheritFrom(parentVersion);
+
+
+                            if (isFrozen)
+                            {
+                                result.Freeze();
+                            }
+
                             return result;
                         }
                     }
