@@ -214,12 +214,23 @@ namespace Nerdbank.GitVersioning
                     {
                         if (parentDirectory is object)
                         {
-                            result = this.GetWorkingCopyVersion(parentDirectory, out string _);
-                            if (result is object)
+                            var parentVersion = this.GetWorkingCopyVersion(parentDirectory, out string _);
+                            if (parentVersion is object)
                             {
-                                JsonConvert.PopulateObject(versionJsonContent, result,
-                                    VersionOptions.GetJsonSettings(
-                                        repoRelativeBaseDirectory: repoRelativeBaseDirectory));
+                                bool isFrozen = result.IsFrozen;
+
+                                if (isFrozen)
+                                {
+                                    result = new VersionOptions(result);
+                                }
+
+                                result.InheritFrom(parentVersion);
+
+                                if (isFrozen)
+                                {
+                                    result.Freeze();
+                                }
+
                                 actualDirectory = searchDirectory;
                                 return result;
                             }
