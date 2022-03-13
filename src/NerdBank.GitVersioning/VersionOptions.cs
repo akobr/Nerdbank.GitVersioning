@@ -134,10 +134,10 @@ public class VersionOptions : IEquatable<VersionOptions>
         private bool? hierarchicalVersion;
 
         /// <summary>
-        /// Backing field for the <see cref="InheritPathFilters"/> property.
+        /// Backing field for the <see cref="PathFiltersInheritBehavior"/> property.
         /// </summary>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private bool? inheritPathFilters;
+        private BehaviorOfPathFiltersInheritance? pathFiltersInheritBehavior;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VersionOptions"/> class.
@@ -154,21 +154,21 @@ public class VersionOptions : IEquatable<VersionOptions>
     {
         Requires.NotNull(copyFrom, nameof(copyFrom));
 
-            this.gitCommitIdPrefix = copyFrom.gitCommitIdPrefix;
-            this.version = copyFrom.version;
-            this.assemblyVersion = copyFrom.assemblyVersion is object ? new AssemblyVersionOptions(copyFrom.assemblyVersion) : null;
-            this.buildNumberOffset = copyFrom.buildNumberOffset;
-            this.semVer1NumericIdentifierPadding = copyFrom.semVer1NumericIdentifierPadding;
-            this.gitCommitIdShortFixedLength = copyFrom.gitCommitIdShortFixedLength;
-            this.gitCommitIdShortAutoMinimum = copyFrom.gitCommitIdShortAutoMinimum;
-            this.nuGetPackageVersion = copyFrom.nuGetPackageVersion is object ? new NuGetPackageVersionOptions(copyFrom.nuGetPackageVersion) : null;
-            this.publicReleaseRefSpec = copyFrom.publicReleaseRefSpec?.ToList();
-            this.cloudBuild = copyFrom.cloudBuild is object ? new CloudBuildOptions(copyFrom.cloudBuild) : null;
-            this.release = copyFrom.release is object ? new ReleaseOptions(copyFrom.release) : null;
-            this.pathFilters = copyFrom.pathFilters?.ToList();
-            this.hierarchicalVersion = copyFrom.hierarchicalVersion;
-            this.inheritPathFilters = copyFrom.inheritPathFilters;
-        }
+        this.gitCommitIdPrefix = copyFrom.gitCommitIdPrefix;
+        this.version = copyFrom.version;
+        this.assemblyVersion = copyFrom.assemblyVersion is object ? new AssemblyVersionOptions(copyFrom.assemblyVersion) : null;
+        this.buildNumberOffset = copyFrom.buildNumberOffset;
+        this.semVer1NumericIdentifierPadding = copyFrom.semVer1NumericIdentifierPadding;
+        this.gitCommitIdShortFixedLength = copyFrom.gitCommitIdShortFixedLength;
+        this.gitCommitIdShortAutoMinimum = copyFrom.gitCommitIdShortAutoMinimum;
+        this.nuGetPackageVersion = copyFrom.nuGetPackageVersion is object ? new NuGetPackageVersionOptions(copyFrom.nuGetPackageVersion) : null;
+        this.publicReleaseRefSpec = copyFrom.publicReleaseRefSpec?.ToList();
+        this.cloudBuild = copyFrom.cloudBuild is object ? new CloudBuildOptions(copyFrom.cloudBuild) : null;
+        this.release = copyFrom.release is object ? new ReleaseOptions(copyFrom.release) : null;
+        this.pathFilters = copyFrom.pathFilters?.ToList();
+        this.hierarchicalVersion = copyFrom.hierarchicalVersion;
+        this.pathFiltersInheritBehavior = copyFrom.PathFiltersInheritBehavior;
+    }
 
     /// <summary>
     /// The last component to control in a 4 integer version.
@@ -252,6 +252,27 @@ public class VersionOptions : IEquatable<VersionOptions>
         /// Increment the build number (the third number in a version) after creating a release branch.
         /// </summary>
         Build,
+    }
+
+    /// <summary>
+    /// The behavior of the inheritance of path filters.
+    /// </summary>
+    public enum BehaviorOfPathFiltersInheritance
+    {
+        /// <summary>
+        /// Path filters will be inherited from parent, but if the child defines own path filters, they are override.
+        /// </summary>
+        InheritButOverride,
+
+        /// <summary>
+        /// Path filters will be be inherited and united with new filters in the child.
+        /// </summary>
+        InheritWithUnion,
+
+        /// <summary>
+        /// Path filters are not inheritable. The child won't inherit any path filters.
+        /// </summary>
+        NonInheritable
     }
 
     /// <summary>
@@ -525,17 +546,13 @@ public class VersionOptions : IEquatable<VersionOptions>
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether path filters are inherited from parent version configurations.
-        /// This is a backward compatibility flag, if you want the behaviour of inheritance on path filters, you must set the flag to true explicitly.
+        /// Gets or sets the behavior of path filters while version options are inherited.
         /// </summary>
-        /// <remarks>
-        /// When this is <c>false</c>, the path filters are NOT inherited from parent configurations.
-        /// </remarks>
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public bool InheritPathFilters
+        public BehaviorOfPathFiltersInheritance? PathFiltersInheritBehavior
         {
-            get => this.inheritPathFilters ?? false;
-            set => this.SetIfNotReadOnly(ref this.inheritPathFilters, value);
+            get => this.pathFiltersInheritBehavior;
+            set => this.SetIfNotReadOnly(ref this.pathFiltersInheritBehavior, value);
         }
 
         /// <summary>
@@ -688,6 +705,9 @@ public class VersionOptions : IEquatable<VersionOptions>
             }
         }
 
+        /// <summary>
+        /// Inherits options from parent instance.
+        /// </summary>
         public void InheritFrom(VersionOptions? parent)
         {
             if (parent is null)
@@ -713,7 +733,7 @@ public class VersionOptions : IEquatable<VersionOptions>
             this.cloudBuild ??= parent.cloudBuild is not null ? new CloudBuildOptions(parent.cloudBuild) : null;
             this.release ??= parent.release is not null ? new ReleaseOptions(parent.release) : null;
 
-            this.inheritPathFilters ??= parent.inheritPathFilters;
+            this.pathFiltersInheritBehavior ??= parent.pathFiltersInheritBehavior;
             this.hierarchicalVersion ??= parent.hierarchicalVersion;
 
             if (this.publicReleaseRefSpec is null)
@@ -725,16 +745,25 @@ public class VersionOptions : IEquatable<VersionOptions>
                 this.publicReleaseRefSpec = this.publicReleaseRefSpec.Union(parent.publicReleaseRefSpec).ToList();
             }
 
-            if (this.inheritPathFilters ?? false)
+            switch(this.pathFiltersInheritBehavior ?? BehaviorOfPathFiltersInheritance.InheritButOverride)
             {
-                if (this.pathFilters is null)
-                {
-                    this.pathFilters = parent.pathFilters?.ToList();
-                }
-                else if (parent.pathFilters is not null)
-                {
-                    this.pathFilters = parent.pathFilters.Union(this.pathFilters).ToList();
-                }
+                case BehaviorOfPathFiltersInheritance.InheritButOverride:
+                    if (this.pathFilters is null)
+                    {
+                        this.pathFilters = parent.pathFilters?.ToList();
+                    }
+                    break;
+
+                case BehaviorOfPathFiltersInheritance.InheritWithUnion:
+                    if (this.pathFilters is null)
+                    {
+                        this.pathFilters = parent.pathFilters?.ToList();
+                    }
+                    else if (parent.pathFilters is not null)
+                    {
+                        this.pathFilters = parent.pathFilters.Union(this.pathFilters).ToList();
+                    }
+                    break;
             }
 
             this.inherit = true;
