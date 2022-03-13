@@ -108,10 +108,10 @@ namespace Nerdbank.GitVersioning
         private bool? hierarchicalVersion;
 
         /// <summary>
-        /// Backing field for the <see cref="InheritPathFilters"/> property.
+        /// Backing field for the <see cref="PathFiltersInheritBehavior"/> property.
         /// </summary>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private bool? inheritPathFilters;
+        private BehaviorOfPathFiltersInheritance? pathFiltersInheritBehavior;
 
         /// <summary>
         /// Default value for <see cref="VersionPrecision"/>.
@@ -172,7 +172,7 @@ namespace Nerdbank.GitVersioning
             this.release = copyFrom.release is object ? new ReleaseOptions(copyFrom.release) : null;
             this.pathFilters = copyFrom.pathFilters?.ToList();
             this.hierarchicalVersion = copyFrom.hierarchicalVersion;
-            this.inheritPathFilters = copyFrom.inheritPathFilters;
+            this.pathFiltersInheritBehavior = copyFrom.PathFiltersInheritBehavior;
         }
 
         /// <summary>
@@ -439,17 +439,13 @@ namespace Nerdbank.GitVersioning
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether path filters are inherited from parent version configurations.
-        /// This is a backward compatibility flag, if you want the behaviour of inheritance on path filters, you must set the flag to true explicitly.
+        /// Gets or sets the behavior of path filters while version options are inherited.
         /// </summary>
-        /// <remarks>
-        /// When this is <c>false</c>, the path filters are NOT inherited from parent configurations.
-        /// </remarks>
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public bool InheritPathFilters
+        public BehaviorOfPathFiltersInheritance? PathFiltersInheritBehavior
         {
-            get => this.inheritPathFilters ?? false;
-            set => this.SetIfNotReadOnly(ref this.inheritPathFilters, value);
+            get => this.pathFiltersInheritBehavior;
+            set => this.SetIfNotReadOnly(ref this.pathFiltersInheritBehavior, value);
         }
 
         /// <summary>
@@ -586,6 +582,9 @@ namespace Nerdbank.GitVersioning
             }
         }
 
+        /// <summary>
+        /// Inherits options from parent instance. 
+        /// </summary>
         public void InheritFrom(VersionOptions? parent)
         {
             if (parent is null)
@@ -611,7 +610,7 @@ namespace Nerdbank.GitVersioning
             this.cloudBuild ??= parent.cloudBuild is not null ? new CloudBuildOptions(parent.cloudBuild) : null;
             this.release ??= parent.release is not null ? new ReleaseOptions(parent.release) : null;
 
-            this.inheritPathFilters ??= parent.inheritPathFilters;
+            this.pathFiltersInheritBehavior ??= parent.pathFiltersInheritBehavior;
             this.hierarchicalVersion ??= parent.hierarchicalVersion;
 
             if (this.publicReleaseRefSpec is null)
@@ -623,16 +622,25 @@ namespace Nerdbank.GitVersioning
                 this.publicReleaseRefSpec = this.publicReleaseRefSpec.Union(parent.publicReleaseRefSpec).ToList();
             }
 
-            if (this.inheritPathFilters ?? false)
+            switch(this.pathFiltersInheritBehavior ?? BehaviorOfPathFiltersInheritance.InheritButOverride)
             {
-                if (this.pathFilters is null)
-                {
-                    this.pathFilters = parent.pathFilters?.ToList();
-                }
-                else if (parent.pathFilters is not null)
-                {
-                    this.pathFilters = parent.pathFilters.Union(this.pathFilters).ToList();
-                }
+                case BehaviorOfPathFiltersInheritance.InheritButOverride:
+                    if (this.pathFilters is null)
+                    {
+                        this.pathFilters = parent.pathFilters?.ToList();
+                    }
+                    break;
+
+                case BehaviorOfPathFiltersInheritance.InheritWithUnion:
+                    if (this.pathFilters is null)
+                    {
+                        this.pathFilters = parent.pathFilters?.ToList();
+                    }
+                    else if (parent.pathFilters is not null)
+                    {
+                        this.pathFilters = parent.pathFilters.Union(this.pathFilters).ToList();
+                    }
+                    break;
             }
 
             this.inherit = true;
@@ -1491,6 +1499,27 @@ namespace Nerdbank.GitVersioning
             /// The commit ID appears as the 4th integer in the version (e.g. 1.2.3.23523).
             /// </summary>
             FourthVersionComponent,
+        }
+
+        /// <summary>
+        /// The behavior of the inheritance of path filters.
+        /// </summary>
+        public enum BehaviorOfPathFiltersInheritance
+        {
+            /// <summary>
+            /// Path filters will be inherited from parent, but if the child defines own path filters, they are override.
+            /// </summary>
+            InheritButOverride,
+
+            /// <summary>
+            /// Path filters will be be inherited and united with new filters in the child.
+            /// </summary>
+            InheritWithUnion,
+
+            /// <summary>
+            /// Path filters are not inheritable. The child won't inherit any path filters.
+            /// </summary>
+            NonInheritable
         }
 
         /// <summary>
