@@ -44,7 +44,7 @@ public abstract class VersionFile
     public bool IsVersionDefined() => this.GetVersion() is object;
 
     /// <inheritdoc cref="GetWorkingCopyVersion(out string?)"/>
-    public VersionOptions? GetWorkingCopyVersion() => this.GetWorkingCopyVersion(out string _);
+    public VersionOptions? GetWorkingCopyVersion() => this.GetWorkingCopyVersion(out _);
 
     /// <summary>
     /// Reads the version file from the working tree and returns the <see cref="VersionOptions"/> deserialized from it.
@@ -88,7 +88,7 @@ public abstract class VersionFile
             {
                 File.WriteAllLines(
                     versionTxtPath,
-                    new[] { version.Version?.Version.ToString(), version.Version?.Prerelease });
+                    new[] { version.Version?.Version.ToString() ?? string.Empty, version.Version?.Prerelease ?? string.Empty });
                 return versionTxtPath;
             }
             else
@@ -213,7 +213,7 @@ public abstract class VersionFile
                 {
                     if (parentDirectory is object)
                     {
-                        result = this.GetWorkingCopyVersion(parentDirectory, out string _);
+                        result = this.GetWorkingCopyVersion(parentDirectory, out _);
                         if (result is object)
                         {
                             JsonConvert.PopulateObject(

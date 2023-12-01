@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation and Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using LibGit2Sharp;
 using Nerdbank.GitVersioning.LibGit2;
 using Newtonsoft.Json;
@@ -127,7 +128,10 @@ public class ReleaseManager
     /// <param name="outputMode">
     /// The output format to use for writing to stdout.
     /// </param>
-    public void PrepareRelease(string projectDirectory, string releaseUnstableTag = null, Version nextVersion = null, VersionOptions.ReleaseVersionIncrement? versionIncrement = null, ReleaseManagerOutputMode outputMode = default)
+    /// <param name="unformattedCommitMessage">
+    /// An optional, custom message to use for the commit that sets the new version number. May use <c>{0}</c> to substitute the new version number.
+    /// </param>
+    public void PrepareRelease(string projectDirectory, string releaseUnstableTag = null, Version nextVersion = null, VersionOptions.ReleaseVersionIncrement? versionIncrement = null, ReleaseManagerOutputMode outputMode = default, string unformattedCommitMessage = null)
     {
         Requires.NotNull(projectDirectory, nameof(projectDirectory));
 
@@ -168,7 +172,7 @@ public class ReleaseManager
                 this.WriteToOutput(releaseInfo);
             }
 
-            this.UpdateVersion(context, versionOptions.Version, releaseVersion);
+            this.UpdateVersion(context, versionOptions.Version, releaseVersion, unformattedCommitMessage);
             return;
         }
 
@@ -192,7 +196,7 @@ public class ReleaseManager
         // create release branch and update version
         Branch releaseBranch = repository.CreateBranch(releaseBranchName);
         global::LibGit2Sharp.Commands.Checkout(repository, releaseBranch);
-        this.UpdateVersion(context, versionOptions.Version, releaseVersion);
+        this.UpdateVersion(context, versionOptions.Version, releaseVersion, unformattedCommitMessage);
 
         if (outputMode == ReleaseManagerOutputMode.Text)
         {
@@ -201,7 +205,7 @@ public class ReleaseManager
 
         // update version on main branch
         global::LibGit2Sharp.Commands.Checkout(repository, originalBranchName);
-        this.UpdateVersion(context, versionOptions.Version, nextDevVersion);
+        this.UpdateVersion(context, versionOptions.Version, nextDevVersion, unformattedCommitMessage);
 
         if (outputMode == ReleaseManagerOutputMode.Text)
         {
@@ -261,7 +265,7 @@ public class ReleaseManager
         return branchNameFormat.Replace("{version}", versionOptions.Version.Version.ToString());
     }
 
-    private void UpdateVersion(LibGit2Context context, SemanticVersion oldVersion, SemanticVersion newVersion)
+    private void UpdateVersion(LibGit2Context context, SemanticVersion oldVersion, SemanticVersion newVersion, string unformattedCommitMessage)
     {
         Requires.NotNull(context, nameof(context));
 
@@ -290,7 +294,13 @@ public class ReleaseManager
             // Author a commit only if we effectively changed something.
             if (!context.Repository.Head.Tip.Tree.Equals(context.Repository.Index.WriteToTree()))
             {
-                context.Repository.Commit($"Set version to '{versionOptions.Version}'", signature, signature, new CommitOptions() { AllowEmptyCommit = false });
+                if (string.IsNullOrEmpty(unformattedCommitMessage))
+                {
+                    unformattedCommitMessage = "Set version to '{0}'";
+                }
+
+                string commitMessage = string.Format(CultureInfo.CurrentCulture, unformattedCommitMessage, versionOptions.Version);
+                context.Repository.Commit(commitMessage, signature, signature, new CommitOptions() { AllowEmptyCommit = false });
             }
         }
     }
@@ -311,7 +321,7 @@ public class ReleaseManager
     {
         // open git repo and use default configuration (in order to commit we need a configured user name and email
         // which is most likely configured on a user/system level rather than the repo level.
-        var context = GitContext.Create(projectDirectory, writable: true);
+        var context = GitContext.Create(projectDirectory, engine: GitContext.Engine.ReadWrite);
         if (!context.IsRepository)
         {
             this.stderr.WriteLine($"No git repository found above directory '{projectDirectory}'.");
@@ -324,9 +334,12 @@ public class ReleaseManager
         RepositoryStatus status = libgit2context.Repository.RetrieveStatus();
         if (status.IsDirty)
         {
-            var changedFiles = status.OfType<StatusEntry>().ToList();
+            // This filter copies the internal logic used by LibGit2 behind RepositoryStatus.IsDirty to tell if
+            // a repo is dirty or not
+            // Could be simplified if https://github.com/libgit2/libgit2sharp/pull/2004 is ever merged
+            var changedFiles = status.Where(file => file.State != FileStatus.Ignored && file.State != FileStatus.Unaltered).ToList();
             string changesFilesFormatted = string.Join(Environment.NewLine, changedFiles.Select(t => $"- {t.FilePath} changed with {nameof(FileStatus)} {t.State}"));
-            this.stderr.WriteLine($"Uncommitted changes ({changedFiles.Count}) in directory '{projectDirectory}':");
+            this.stderr.WriteLine($"No uncommitted changes are allowed, but {changedFiles.Count} are present in directory '{projectDirectory}':");
             this.stderr.WriteLine(changesFilesFormatted);
             throw new ReleasePreparationException(ReleasePreparationError.UncommittedChanges);
         }

@@ -40,6 +40,9 @@
       <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(TargetExt)' != '.dll' and '$(TargetExt)' != '.exe' ">false</GenerateAssemblyVersionInfo>
       <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(NBGV_CacheMode)' == 'VersionGenerationTarget' ">false</GenerateAssemblyVersionInfo>
 
+      <!-- Suppress assembly version info generation for WiX Toolset project. -->
+      <GenerateAssemblyVersionInfo Condition=" '$(GenerateAssemblyVersionInfo)' == '' and '$(Language)' == 'wix' ">false</GenerateAssemblyVersionInfo>
+
       <!-- Workaround the property stomping that msbuild does (see https://github.com/microsoft/msbuild/pull/4922) with manual imports. -->
       <PrepareForBuildDependsOn>
         GenerateNativeNBGVVersionInfo;
@@ -112,11 +115,14 @@
 
   <Target Name="GetNuGetPackageVersion" DependsOnTargets="GetBuildVersion" Returns="$(NuGetPackageVersion)" />
 
-  <Target Name="GenerateAssemblyNBGVVersionInfo" DependsOnTargets="GetBuildVersion" Condition=" '$(GenerateAssemblyVersionInfo)' != 'false' ">
+  <Target Name="GenerateAssemblyNBGVVersionInfo" DependsOnTargets="GetBuildVersion" Condition=" '$(Language)' != '' and '$(GenerateAssemblyVersionInfo)' != 'false' ">
     <PropertyGroup>
       <VersionSourceFile>$([MSBuild]::NormalizePath('$(IntermediateOutputPath)', '$(AssemblyName).Version$(DefaultLanguageSourceExtension)'))</VersionSourceFile>
       <NewVersionSourceFile>$(VersionSourceFile).new</NewVersionSourceFile>
     </PropertyGroup>
+    <ItemGroup>
+      <AdditionalThisAssemblyFields Include="NuGetPackageVersion" String="$(NuGetPackageVersion)" Condition="'$(NBGV_ThisAssemblyIncludesPackageVersion)' == 'true'" />
+    </ItemGroup>
     <MakeDir Directories="$(IntermediatePath)"/>
     <Nerdbank.GitVersioning.Tasks.AssemblyVersionInfo
                   OutputFile="$(NewVersionSourceFile)"
@@ -126,6 +132,7 @@
                   AssemblyInformationalVersion="$(AssemblyInformationalVersion)"
                   AssemblyName="$(AssemblyName)"
                   RootNamespace="$(RootNamespace)"
+                  ThisAssemblyNamespace="$(NBGV_ThisAssemblyNamespace)"
                   AssemblyOriginatorKeyFile="$(AssemblyOriginatorKeyFile)"
                   AssemblyTitle="$(AssemblyTitle)"
                   AssemblyProduct="$(AssemblyProduct)"
@@ -219,11 +226,11 @@
       <RazorCompile Include="$(VersionSourceFile)" />
     </ItemGroup>
   </Target>
-  
+
   <!-- Support for Maui projects -->
 
   <Target Name="NBGV_SetVersionForMauiAndroid"
-          Condition="'$(TargetPlatformIdentifier)' == 'android'"
+          Condition="'$(NBGV_SetMauiVersionProperties)'!='false' and '$(TargetPlatformIdentifier)' == 'android'"
           BeforeTargets="_GetAndroidPackageName"
           DependsOnTargets="GetBuildVersion">
     <!-- Android requirement: ApplicationVersion must be a positive integer (used as an internal version number)
@@ -247,7 +254,7 @@
   </Target>
 
   <Target Name="NBGV_SetVersionForMauiIOS"
-          Condition="'$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst'"
+          Condition="'$(NBGV_SetMauiVersionProperties)'!='false' and ('$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst')"
           BeforeTargets="_CompileAppManifest"
           DependsOnTargets="GetBuildVersion">
     <PropertyGroup>
@@ -259,7 +266,7 @@
   </Target>
 
   <Target Name="NBGV_SetVersionForMauiWindows"
-          Condition="'$(TargetPlatformIdentifier)' == 'windows'"
+          Condition="'$(NBGV_SetMauiVersionProperties)'!='false' and '$(TargetPlatformIdentifier)' == 'windows'"
           BeforeTargets="MauiGeneratePackageAppxManifest"
           DependsOnTargets="GetBuildVersion">
     <PropertyGroup>

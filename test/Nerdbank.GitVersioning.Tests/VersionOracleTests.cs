@@ -24,7 +24,7 @@ public class VersionOracleManagedTests : VersionOracleTests
 
     /// <inheritdoc/>
     protected override GitContext CreateGitContext(string path, string committish = null)
-        => GitContext.Create(path, committish, writable: false);
+        => GitContext.Create(path, committish, engine: GitContext.Engine.ReadOnly);
 }
 
 [Trait("Engine", "LibGit2")]
@@ -37,7 +37,7 @@ public class VersionOracleLibGit2Tests : VersionOracleTests
 
     /// <inheritdoc/>
     protected override GitContext CreateGitContext(string path, string committish = null)
-        => GitContext.Create(path, committish, writable: true);
+        => GitContext.Create(path, committish, engine: GitContext.Engine.ReadWrite);
 }
 
 public abstract class VersionOracleTests : RepoTestBase
@@ -604,15 +604,19 @@ public abstract class VersionOracleTests : RepoTestBase
 
         string workTreePath = this.CreateDirectoryForNewRepo();
         Directory.Delete(workTreePath);
+        Worktree worktree;
         if (detachedHead)
         {
-            this.LibGit2Repository.Worktrees.Add("HEAD~1", "myworktree", workTreePath, isLocked: false);
+            worktree = this.LibGit2Repository.Worktrees.Add("HEAD~1", "myworktree", workTreePath, isLocked: false);
         }
         else
         {
             this.LibGit2Repository.Branches.Add("wtbranch", "HEAD~1");
-            this.LibGit2Repository.Worktrees.Add("wtbranch", "myworktree", workTreePath, isLocked: false);
+            worktree = this.LibGit2Repository.Worktrees.Add("wtbranch", "myworktree", workTreePath, isLocked: false);
         }
+
+        // Workaround for https://github.com/libgit2/libgit2sharp/issues/2037
+        Commands.Checkout(worktree.WorktreeRepository, "HEAD", new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force });
 
         GitContext context = this.CreateGitContext(workTreePath);
         var oracleWorkTree = new VersionOracle(context);
@@ -1031,6 +1035,50 @@ public abstract class VersionOracleTests : RepoTestBase
 
         // Version is reset as project directory cannot be find in the ancestor commit
         Assert.Equal(1, this.GetVersionHeight("new-project-dir"));
+    }
+
+    [Fact]
+    public void Tags()
+    {
+        this.WriteVersionFile(new VersionOptions { Version = SemanticVersion.Parse("1.2"), GitCommitIdShortAutoMinimum = 4 });
+        this.InitializeSourceControl();
+        this.AddCommits(1);
+        VersionOracle oracle = new(this.Context);
+
+        // Assert that we don't see any tags.
+        Assert.Empty(oracle.Tags);
+
+        // Create a tag.
+        this.LibGit2Repository.ApplyTag("mytag");
+
+        // Refresh our context before asking again.
+        this.Context = this.CreateGitContext(this.RepoPath);
+        VersionOracle oracle2 = new(this.Context);
+
+        // Assert that we see the tag.
+        Assert.Equal("refs/tags/mytag", Assert.Single(oracle2.Tags));
+    }
+
+    [Fact]
+    public void Tags_Annotated()
+    {
+        this.WriteVersionFile(new VersionOptions { Version = SemanticVersion.Parse("1.2"), GitCommitIdShortAutoMinimum = 4 });
+        this.InitializeSourceControl();
+        this.AddCommits(1);
+        VersionOracle oracle = new(this.Context);
+
+        // Assert that we don't see any tags.
+        Assert.Empty(oracle.Tags);
+
+        // Create a tag.
+        this.LibGit2Repository.ApplyTag("mytag", this.Signer, "my tag");
+
+        // Refresh our context before asking again.
+        this.Context = this.CreateGitContext(this.RepoPath);
+        VersionOracle oracle2 = new(this.Context);
+
+        // Assert that we see the tag.
+        Assert.Equal("refs/tags/mytag", Assert.Single(oracle2.Tags));
     }
 
     [Fact]

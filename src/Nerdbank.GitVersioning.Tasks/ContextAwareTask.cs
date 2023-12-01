@@ -11,22 +11,24 @@ using Nerdbank.GitVersioning;
 #endif
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using Nerdbank.GitVersioning.LibGit2;
 
 namespace MSBuildExtensionTask
 {
     public abstract class ContextAwareTask : Microsoft.Build.Utilities.Task
     {
-        protected virtual string ManagedDllDirectory => Path.GetDirectoryName(new Uri(this.GetType().GetTypeInfo().Assembly.CodeBase).LocalPath);
+        protected virtual string ManagedDllDirectory => Path.GetDirectoryName(this.GetType().GetTypeInfo().Assembly.Location);
 
         protected virtual string UnmanagedDllDirectory => null;
 
         /// <inheritdoc/>
         public override bool Execute()
         {
+            string taskAssemblyPath = this.GetType().GetTypeInfo().Assembly.Location;
+            string unmanagedBaseDirectory = Path.GetDirectoryName(Path.GetDirectoryName(taskAssemblyPath));
 #if NETCOREAPP
-            string taskAssemblyPath = new Uri(this.GetType().GetTypeInfo().Assembly.CodeBase).LocalPath;
-
-            Assembly inContextAssembly = GitLoaderContext.Instance.LoadFromAssemblyPath(taskAssemblyPath);
+            GitLoaderContext loaderContext = new(unmanagedBaseDirectory);
+            Assembly inContextAssembly = loaderContext.LoadFromAssemblyPath(taskAssemblyPath);
             Type innerTaskType = inContextAssembly.GetType(this.GetType().FullName);
             object innerTask = Activator.CreateInstance(innerTaskType);
 
@@ -55,18 +57,7 @@ namespace MSBuildExtensionTask
 
             return result;
 #else
-            // On .NET Framework (on Windows), we find native binaries by adding them to our PATH.
-            if (this.UnmanagedDllDirectory is not null)
-            {
-                string pathEnvVar = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-                string[] searchPaths = pathEnvVar.Split(Path.PathSeparator);
-                if (!searchPaths.Contains(this.UnmanagedDllDirectory, StringComparer.OrdinalIgnoreCase))
-                {
-                    pathEnvVar += Path.PathSeparator + this.UnmanagedDllDirectory;
-                    Environment.SetEnvironmentVariable("PATH", pathEnvVar);
-                }
-            }
-
+            LibGit2GitExtensions.LoadNativeBinary(unmanagedBaseDirectory);
             return this.ExecuteInner();
 #endif
         }

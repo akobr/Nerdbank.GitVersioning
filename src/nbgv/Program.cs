@@ -10,6 +10,7 @@ using System.CommandLine.Parsing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Build.Construction;
@@ -68,6 +69,8 @@ namespace Nerdbank.GitVersioning.Tool
             PackageIdNotFound,
             ShallowClone,
             InternalError,
+            InvalidTagNameSetting,
+            InvalidUnformattedCommitMessage,
         }
 
         private static bool AlwaysUseLibGit2 => string.Equals(Environment.GetEnvironmentVariable("NBGV_GitEngine"), "LibGit2", StringComparison.Ordinal);
@@ -76,9 +79,10 @@ namespace Nerdbank.GitVersioning.Tool
 
         public static int Main(string[] args)
         {
-            string thisAssemblyPath = new Uri(typeof(Program).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            string thisAssemblyPath = typeof(Program).GetTypeInfo().Assembly.Location;
 
-            Assembly inContextAssembly = GitLoaderContext.Instance.LoadFromAssemblyPath(thisAssemblyPath);
+            GitLoaderContext loaderContext = new(Path.GetDirectoryName(thisAssemblyPath));
+            Assembly inContextAssembly = loaderContext.LoadFromAssemblyPath(thisAssemblyPath);
             Type innerProgramType = inContextAssembly.GetType(typeof(Program).FullName);
             object innerProgram = Activator.CreateInstance(innerProgramType);
 
@@ -215,6 +219,7 @@ namespace Nerdbank.GitVersioning.Tool
                 var nextVersion = new Option<string>("--nextVersion", "The version to set for the current branch. If omitted, the next version is determined automatically by incrementing the current version.");
                 var versionIncrement = new Option<string>("--versionIncrement", "Overrides the 'versionIncrement' setting set in version.json for determining the next version of the current branch.");
                 var format = new Option<string>(new[] { "--format", "-f" }, $"The format to write information about the release. Allowed values are: {string.Join(", ", SupportedFormats)}. The default is {DefaultOutputFormat}.").FromAmong(SupportedFormats);
+                var unformattedCommitMessage = new Option<string>("--commit-message-pattern", "A custom message to use for the commit that changes the version number. May include {0} for the version number. If not specified, the default is \"Set version to '{0}'\".");
                 var tagArgument = new Argument<string>("tag", "The prerelease tag to apply on the release branch (if any). If not specified, any existing prerelease tag will be removed. The preceding hyphen may be omitted.")
                 {
                     Arity = ArgumentArity.ZeroOrOne,
@@ -225,10 +230,11 @@ namespace Nerdbank.GitVersioning.Tool
                     nextVersion,
                     versionIncrement,
                     format,
+                    unformattedCommitMessage,
                     tagArgument,
                 };
 
-                prepareRelease.SetHandler(OnPrepareReleaseCommand, project, nextVersion, versionIncrement, format, tagArgument);
+                prepareRelease.SetHandler(OnPrepareReleaseCommand, project, nextVersion, versionIncrement, format, tagArgument, unformattedCommitMessage);
             }
 
             var root = new RootCommand($"{ThisAssembly.AssemblyTitle} v{ThisAssembly.AssemblyInformationalVersion}")
@@ -313,7 +319,7 @@ namespace Nerdbank.GitVersioning.Tool
                 return (int)ExitCodes.NoGitRepo;
             }
 
-            using var context = GitContext.Create(searchPath, writable: true);
+            using var context = GitContext.Create(searchPath, engine: GitContext.Engine.ReadWrite);
             if (!context.IsRepository)
             {
                 Console.Error.WriteLine("No git repo found at or above: \"{0}\"", searchPath);
@@ -415,7 +421,7 @@ namespace Nerdbank.GitVersioning.Tool
 
             string searchPath = GetSpecifiedOrCurrentDirectoryPath(project);
 
-            using var context = GitContext.Create(searchPath, writable: AlwaysUseLibGit2);
+            using var context = GitContext.Create(searchPath, engine: AlwaysUseLibGit2 ? GitContext.Engine.ReadWrite : GitContext.Engine.ReadOnly);
             if (!context.IsRepository)
             {
                 Console.Error.WriteLine("No git repo found at or above: \"{0}\"", searchPath);
@@ -498,7 +504,7 @@ namespace Nerdbank.GitVersioning.Tool
             };
 
             string searchPath = GetSpecifiedOrCurrentDirectoryPath(project);
-            using var context = GitContext.Create(searchPath, writable: true);
+            using var context = GitContext.Create(searchPath, engine: GitContext.Engine.ReadWrite);
             VersionOptions existingOptions = context.VersionFile.GetVersion(out string actualDirectory);
             string versionJsonPath;
             if (existingOptions is not null)
@@ -538,13 +544,31 @@ namespace Nerdbank.GitVersioning.Tool
 
             string searchPath = GetSpecifiedOrCurrentDirectoryPath(project);
 
-            using var context = (LibGit2Context)GitContext.Create(searchPath, writable: true);
+            using var context = (LibGit2Context)GitContext.Create(searchPath, engine: GitContext.Engine.ReadWrite);
             if (context is null)
             {
                 Console.Error.WriteLine("No git repo found at or above: \"{0}\"", searchPath);
                 return Task.FromResult((int)ExitCodes.NoGitRepo);
             }
 
+            // get tag name format
+            VersionOptions versionOptions = context.VersionFile.GetVersion();
+            if (versionOptions is null)
+            {
+                Console.Error.WriteLine($"Failed to load version file for directory '{searchPath}'.");
+                return Task.FromResult((int)ExitCodes.NoVersionJsonFound);
+            }
+
+            string tagNameFormat = versionOptions.ReleaseOrDefault.TagNameOrDefault;
+
+            // ensure there is a '{version}' placeholder in the tag name
+            if (string.IsNullOrEmpty(tagNameFormat) || !tagNameFormat.Contains("{version}"))
+            {
+                Console.Error.WriteLine($"Invalid 'tagName' setting '{tagNameFormat}'. Missing version placeholder '{{version}}'.");
+                return Task.FromResult((int)ExitCodes.InvalidTagNameSetting);
+            }
+
+            // get commit to tag
             LibGit2Sharp.Repository repository = context.Repository;
             if (!context.TrySelectCommit(versionOrRef))
             {
@@ -585,8 +609,12 @@ namespace Nerdbank.GitVersioning.Tool
                 return Task.FromResult((int)ExitCodes.NoVersionJsonFound);
             }
 
-            oracle.PublicRelease = true; // assume a public release so we don't get a redundant -gCOMMITID in the tag name
-            string tagName = $"v{oracle.SemVer2}";
+            // assume a public release so we don't get a redundant -gCOMMITID in the tag name
+            oracle.PublicRelease = true;
+
+            // replace the "{version}" placeholder with the actual version
+            string tagName = tagNameFormat.Replace("{version}", oracle.SemVer2);
+
             try
             {
                 context.ApplyTag(tagName);
@@ -615,7 +643,7 @@ namespace Nerdbank.GitVersioning.Tool
 
             string searchPath = GetSpecifiedOrCurrentDirectoryPath(project);
 
-            using var context = (LibGit2Context)GitContext.Create(searchPath, writable: true);
+            using var context = (LibGit2Context)GitContext.Create(searchPath, engine: GitContext.Engine.ReadWrite);
             if (!context.IsRepository)
             {
                 Console.Error.WriteLine("No git repo found at or above: \"{0}\"", searchPath);
@@ -686,7 +714,7 @@ namespace Nerdbank.GitVersioning.Tool
             return Task.FromResult((int)ExitCodes.OK);
         }
 
-        private static Task<int> OnPrepareReleaseCommand(string project, string nextVersion, string versionIncrement, string format, string tag)
+        private static Task<int> OnPrepareReleaseCommand(string project, string nextVersion, string versionIncrement, string format, string tag, string unformattedCommitMessage)
         {
             // validate project path property
             string searchPath = GetSpecifiedOrCurrentDirectoryPath(project);
@@ -739,11 +767,24 @@ namespace Nerdbank.GitVersioning.Tool
                 return Task.FromResult((int)ExitCodes.UnsupportedFormat);
             }
 
+            if (!string.IsNullOrEmpty(unformattedCommitMessage))
+            {
+                try
+                {
+                    string.Format(unformattedCommitMessage, "FormatValidator");
+                }
+                catch (FormatException ex)
+                {
+                    Console.Error.WriteLine($"Invalid commit message pattern: {ex.Message}");
+                    return Task.FromResult((int)ExitCodes.InvalidUnformattedCommitMessage);
+                }
+            }
+
             // run prepare-release
             try
             {
                 var releaseManager = new ReleaseManager(Console.Out, Console.Error);
-                releaseManager.PrepareRelease(searchPath, tag, nextVersionParsed, versionIncrementParsed, outputMode);
+                releaseManager.PrepareRelease(searchPath, tag, nextVersionParsed, versionIncrementParsed, outputMode, unformattedCommitMessage);
                 return Task.FromResult((int)ExitCodes.OK);
             }
             catch (ReleaseManager.ReleasePreparationException ex)
