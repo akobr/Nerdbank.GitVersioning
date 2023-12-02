@@ -586,6 +586,8 @@ public static class LibGit2GitExtensions
             this.context = context;
         }
 
+        internal LibGit2Context Context => this.context;
+
         internal bool TryGetVersionHeight(Commit commit, out int height) => this.heights.TryGetValue(commit.Id, out height);
 
         internal void RecordHeight(Commit commit, int height) => this.heights.Add(commit.Id, height);

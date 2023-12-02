@@ -29,8 +29,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)strongname.snk</AssemblyOriginatorKeyFile>
 
-    <PackageProjectUrl>https://github.com/dotnet/Nerdbank.GitVersioning</PackageProjectUrl>
-    <Authors>Andrew Arnott</Authors>
+    <PackageProjectUrl>https://github.com/akobr/Nerdbank.GitVersioning</PackageProjectUrl>
+    <Authors>Andrew Arnott, Ales Kobr</Authors>
     <PackageTags>git commit versioning version assemblyinfo</PackageTags>
     <Copyright>Copyright (c) .NET Foundation and Contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
