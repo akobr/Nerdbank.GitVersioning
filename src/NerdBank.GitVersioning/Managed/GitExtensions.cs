@@ -133,17 +133,9 @@ internal static class GitExtensions
             }
 
             VersionOptions? versionOptions = tracker.GetVersion(commit);
-            IReadOnlyList<FilterPath>? pathFilters = versionOptions?.PathFilters;
-
-            var includePaths =
-                pathFilters
-                    ?.Where(filter => !filter.IsExclude)
-                    .Select(filter => filter.RepoRelativePath)
-                    .ToList();
-
-            var excludePaths = pathFilters?.Where(filter => filter.IsExclude).ToList();
-
-            bool ignoreCase = repository.IgnoreCase;
+            IReadOnlyList<FilterPath>? pathFilters = versionOptions?.HierarchicalVersion ?? false
+                ? new List<FilterPath> { new FilterPath(tracker.Context.RepoRelativeProjectDirectory, string.Empty) }
+                : versionOptions?.PathFilters;
 
             int height = 1;
 
@@ -318,6 +310,8 @@ internal static class GitExtensions
         {
             this.context = context;
         }
+
+        internal ManagedGitContext Context => this.context;
 
         internal bool TryGetVersionHeight(GitCommit commit, out int height) => this.heights.TryGetValue(commit.Sha, out height);
 
