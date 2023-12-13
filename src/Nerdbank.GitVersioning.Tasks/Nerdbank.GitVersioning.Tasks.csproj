@@ -41,7 +41,7 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning.LKG" />
+    <PackageReference Include="42.Monorepo.GitVersioning.LKG" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NerdBank.GitVersioning\Nerdbank.GitVersioning.csproj" />

@@ -12,7 +12,7 @@
   <ItemGroup>
     <PackageReference Include="NuGet.PackageManagement" />
     <PackageReference Include="System.CommandLine" />
-    <PackageReference Include="Nerdbank.GitVersioning.LKG" PrivateAssets="all" />
+    <PackageReference Include="42.Monorepo.GitVersioning.LKG" PrivateAssets="all" />
     <PackageReference Include="System.Diagnostics.Tools" />
     <PackageReference Include="Microsoft.Build" />
   </ItemGroup>
